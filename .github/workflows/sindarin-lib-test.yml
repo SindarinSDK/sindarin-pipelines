@@ -1,0 +1,104 @@
+# Reusable CI workflow for Sindarin native C libraries
+# Installs build tools, bootstraps vcpkg, runs make test (cmake + ctest).
+#
+# Usage (in calling repo's .github/workflows/ci.yml):
+#   jobs:
+#     test:
+#       uses: SindarinSDK/sindarin-pipelines/.github/workflows/sindarin-lib-test.yml@main
+
+name: Sindarin Lib Test
+
+on:
+  workflow_call:
+
+jobs:
+  sindarin-lib-test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+          - os: windows-latest
+          - os: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      #------------------------------------------------------------------------
+      # Platform prerequisites
+      #------------------------------------------------------------------------
+      - name: Setup Prerequisites (Linux/macOS)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/SindarinSDK/sindarin-compiler/main/scripts/install-prereqs.sh \
+            -o /tmp/install-prereqs.sh
+          bash /tmp/install-prereqs.sh
+
+      - name: Setup Prerequisites (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $scriptPath = "$env:TEMP\install-prereqs.ps1"
+          Invoke-WebRequest `
+            -Uri "https://raw.githubusercontent.com/SindarinSDK/sindarin-compiler/main/scripts/install-prereqs.ps1" `
+            -OutFile $scriptPath
+          & $scriptPath
+
+      #------------------------------------------------------------------------
+      # Bootstrap vcpkg
+      #------------------------------------------------------------------------
+      - name: Bootstrap vcpkg (Linux/macOS)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          git clone https://github.com/microsoft/vcpkg "$HOME/vcpkg"
+          "$HOME/vcpkg/bootstrap-vcpkg.sh" -disableMetrics
+          echo "VCPKG_ROOT=$HOME/vcpkg" >> "$GITHUB_ENV"
+
+      - name: Bootstrap vcpkg (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $vcpkgDir = "$env:USERPROFILE\vcpkg"
+          git clone https://github.com/microsoft/vcpkg $vcpkgDir
+          & "$vcpkgDir\bootstrap-vcpkg.bat" -disableMetrics
+          $vcpkgDirFwd = $vcpkgDir.Replace('\', '/')
+          "VCPKG_ROOT=$vcpkgDirFwd" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      #------------------------------------------------------------------------
+      # Cache vcpkg packages
+      #------------------------------------------------------------------------
+      - name: Cache vcpkg packages
+        uses: actions/cache@v4
+        with:
+          path: vcpkg_installed
+          key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json') }}
+          restore-keys: |
+            vcpkg-${{ runner.os }}-
+
+      #------------------------------------------------------------------------
+      # Build and test
+      #------------------------------------------------------------------------
+      - name: Run tests
+        shell: bash
+        run: make test
+
+      #------------------------------------------------------------------------
+      # Diagnose on failure
+      #------------------------------------------------------------------------
+      - name: Diagnose failures
+        if: failure()
+        shell: bash
+        run: |
+          echo "=== CMake version ==="
+          cmake --version
+          echo ""
+          echo "=== vcpkg version ==="
+          "$VCPKG_ROOT/vcpkg" version 2>&1 || true
+          echo ""
+          echo "=== CTest verbose output ==="
+          cd build && ctest --output-on-failure --rerun-failed 2>&1 || true
