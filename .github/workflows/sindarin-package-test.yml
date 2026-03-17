@@ -6,7 +6,7 @@
 #     test:
 #       uses: SindarinSDK/sindarin-pipelines/.github/workflows/test.yml@main
 
-name: Package Test
+name: Sindarin Package Test
 
 on:
   workflow_call:
@@ -30,50 +30,23 @@ jobs:
       #------------------------------------------------------------------------
       # Platform prerequisites
       #------------------------------------------------------------------------
-      - name: Setup Prerequisites (Linux)
-        if: runner.os == 'Linux'
+      - name: Setup Prerequisites (Linux/macOS)
+        if: runner.os != 'Windows'
+        shell: bash
         run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential
+          curl -fsSL https://raw.githubusercontent.com/SindarinSDK/sindarin-compiler/main/scripts/install-prereqs.sh \
+            -o /tmp/install-prereqs.sh
+          bash /tmp/install-prereqs.sh
 
-      - name: Setup Prerequisites (macOS)
-        if: runner.os == 'macOS'
-        run: brew install coreutils
-
-      - name: Remove system LLVM (Windows)
+      - name: Setup Prerequisites (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          if (Test-Path "C:\Program Files\LLVM") {
-            Write-Host "Removing system LLVM to avoid conflicts..."
-            Remove-Item -Path "C:\Program Files\LLVM" -Recurse -Force
-          }
-
-      - name: Install LLVM-MinGW (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $version = "20241217"
-          $url = "https://github.com/mstorsjo/llvm-mingw/releases/download/$version/llvm-mingw-$version-ucrt-x86_64.zip"
-          $zipPath = "$env:TEMP\llvm-mingw.zip"
-          $extractPath = "C:\llvm-mingw"
-
-          Write-Host "Downloading LLVM-MinGW $version..."
-          Invoke-WebRequest -Uri $url -OutFile $zipPath
-
-          Write-Host "Extracting to $extractPath..."
-          Expand-Archive -Path $zipPath -DestinationPath $extractPath -Force
-
-          $llvmDir = Get-ChildItem -Path $extractPath -Directory | Select-Object -First 1
-          $binPath = Join-Path $llvmDir.FullName "bin"
-
-          Write-Host "LLVM-MinGW installed at: $($llvmDir.FullName)"
-          echo "$binPath" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-
-      - name: Install Make (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: choco install make -y
+          $scriptPath = "$env:TEMP\install-prereqs.ps1"
+          Invoke-WebRequest `
+            -Uri "https://raw.githubusercontent.com/SindarinSDK/sindarin-compiler/main/scripts/install-prereqs.ps1" `
+            -OutFile $scriptPath
+          & $scriptPath
 
       #------------------------------------------------------------------------
       # Install Sindarin compiler from latest release
@@ -84,25 +57,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          INSTALL_DIR="$HOME/.sn"
-          rm -rf "$INSTALL_DIR"
-          mkdir -p "$INSTALL_DIR"
-
-          OS=$(uname -s | tr '[:upper:]' '[:lower:]')
-          ARCH=$(uname -m)
-          case "$ARCH" in
-            x86_64|amd64) ARCH="x64" ;;
-            aarch64|arm64) ARCH="arm64" ;;
-          esac
-
-          PATTERN="sindarin-*-${OS}-${ARCH}.tar.gz"
-          echo "Downloading latest release matching: $PATTERN"
-          gh release download --repo SindarinSDK/sindarin-compiler --pattern "$PATTERN" --dir /tmp
-          TARBALL=$(ls /tmp/sindarin-*-${OS}-${ARCH}.tar.gz)
-          tar -xzf "$TARBALL" -C "$INSTALL_DIR" --strip-components=1
-
-          echo "$INSTALL_DIR/bin" >> "$GITHUB_PATH"
-          echo "Installed: $($INSTALL_DIR/bin/sn --version)"
+          curl -fsSL https://raw.githubusercontent.com/SindarinSDK/sindarin-compiler/main/scripts/install.sh \
+            -o /tmp/install.sh
+          bash /tmp/install.sh
 
       - name: Install Sindarin (Windows)
         if: runner.os == 'Windows'
@@ -110,29 +67,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $InstallDir = Join-Path $env:USERPROFILE ".sn"
-          if (Test-Path $InstallDir) { Remove-Item -Path $InstallDir -Recurse -Force }
-          New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
-
-          $tempDir = Join-Path $env:TEMP "sn-install"
-          New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
-          gh release download --repo SindarinSDK/sindarin-compiler --pattern "sindarin-*-windows-x64.zip" --dir $tempDir
-
-          $zipFile = Get-ChildItem -Path $tempDir -Filter "sindarin-*-windows-x64.zip" | Select-Object -First 1
-          Write-Host "Extracting $($zipFile.Name)..."
-          Expand-Archive -Path $zipFile.FullName -DestinationPath $InstallDir -Force
-
-          # Flatten the single nested directory (e.g. sindarin-0.0.64-windows-x64/)
-          $nested = Get-ChildItem -Path $InstallDir -Directory | Where-Object { $_.Name -like "sindarin-*" } | Select-Object -First 1
-          if ($nested) {
-            Get-ChildItem -Path $nested.FullName | Move-Item -Destination $InstallDir -Force
-            Remove-Item -Path $nested.FullName -Force
-          }
-
-          $BinDir = Join-Path $InstallDir "bin"
-          echo $BinDir | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          Write-Host "Installed: $(& (Join-Path $BinDir 'sn.exe') --version)"
-          Remove-Item -Path $tempDir -Recurse -Force
+          $scriptPath = "$env:TEMP\install.ps1"
+          Invoke-WebRequest `
+            -Uri "https://raw.githubusercontent.com/SindarinSDK/sindarin-compiler/main/scripts/install.ps1" `
+            -OutFile $scriptPath
+          & $scriptPath
 
       - name: Verify compiler
         shell: bash
