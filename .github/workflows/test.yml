@@ -81,12 +81,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           INSTALL_DIR="$HOME/.sn"
-          LIB_DIR="$INSTALL_DIR/lib/sindarin"
-          BIN_DIR="$INSTALL_DIR/bin"
           rm -rf "$INSTALL_DIR"
-          mkdir -p "$LIB_DIR" "$BIN_DIR"
+          mkdir -p "$INSTALL_DIR"
 
-          # Detect platform
           OS=$(uname -s | tr '[:upper:]' '[:lower:]')
           ARCH=$(uname -m)
           case "$ARCH" in
@@ -94,19 +91,14 @@ jobs:
             aarch64|arm64) ARCH="arm64" ;;
           esac
 
-          # Download and extract latest release into lib/sindarin
           PATTERN="sindarin-*-${OS}-${ARCH}.tar.gz"
           echo "Downloading latest release matching: $PATTERN"
           gh release download --repo SindarinSDK/sindarin-compiler --pattern "$PATTERN" --dir /tmp
           TARBALL=$(ls /tmp/sindarin-*-${OS}-${ARCH}.tar.gz)
-          tar -xzf "$TARBALL" -C "$LIB_DIR" --strip-components=1
+          tar -xzf "$TARBALL" -C "$INSTALL_DIR" --strip-components=1
 
-          # Create symlink: bin/sn -> ../lib/sindarin/sn
-          chmod +x "$LIB_DIR/sn"
-          ln -s ../lib/sindarin/sn "$BIN_DIR/sn"
-
-          echo "$BIN_DIR" >> "$GITHUB_PATH"
-          echo "Installed: $($BIN_DIR/sn --version)"
+          echo "$INSTALL_DIR/bin" >> "$GITHUB_PATH"
+          echo "Installed: $($INSTALL_DIR/bin/sn --version)"
 
       - name: Install Sindarin (Windows)
         if: runner.os == 'Windows'
@@ -115,29 +107,25 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $InstallDir = Join-Path $env:USERPROFILE ".sn"
-          $LibDir = Join-Path $InstallDir "lib\sindarin"
-          $BinDir = Join-Path $InstallDir "bin"
-
           if (Test-Path $InstallDir) { Remove-Item -Path $InstallDir -Recurse -Force }
-          New-Item -ItemType Directory -Path $LibDir -Force | Out-Null
-          New-Item -ItemType Directory -Path $BinDir -Force | Out-Null
+          New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
 
-          # Download latest Windows release
           $tempDir = Join-Path $env:TEMP "sn-install"
           New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
           gh release download --repo SindarinSDK/sindarin-compiler --pattern "sindarin-*-windows-x64.zip" --dir $tempDir
 
           $zipFile = Get-ChildItem -Path $tempDir -Filter "sindarin-*-windows-x64.zip" | Select-Object -First 1
           Write-Host "Extracting $($zipFile.Name)..."
-          Expand-Archive -Path $zipFile.FullName -DestinationPath $tempDir -Force
+          Expand-Archive -Path $zipFile.FullName -DestinationPath $InstallDir -Force
 
-          # Move contents from nested dir into lib/sindarin
-          $nested = Get-ChildItem -Path $tempDir -Directory | Where-Object { $_.Name -like "sindarin-*" } | Select-Object -First 1
-          Get-ChildItem -Path $nested.FullName | Move-Item -Destination $LibDir -Force
+          # Flatten the single nested directory (e.g. sindarin-0.0.64-windows-x64/)
+          $nested = Get-ChildItem -Path $InstallDir -Directory | Where-Object { $_.Name -like "sindarin-*" } | Select-Object -First 1
+          if ($nested) {
+            Get-ChildItem -Path $nested.FullName | Move-Item -Destination $InstallDir -Force
+            Remove-Item -Path $nested.FullName -Force
+          }
 
-          # Copy sn.exe to both lib/sindarin and bin (Windows has no symlinks)
-          Copy-Item -Path (Join-Path $LibDir "bin\sn.exe") -Destination (Join-Path $BinDir "sn.exe") -Force
-
+          $BinDir = Join-Path $InstallDir "bin"
           echo $BinDir | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           Write-Host "Installed: $(& (Join-Path $BinDir 'sn.exe') --version)"
           Remove-Item -Path $tempDir -Recurse -Force
