@@ -125,9 +125,10 @@ jobs:
             Remove-Item -Path $nested.FullName -Force
           }
 
-          $BinDir = Join-Path $InstallDir "bin"
-          echo $BinDir | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          Write-Host "Installed: $(& (Join-Path $BinDir 'sn.exe') --version)"
+          # On Windows sn.exe must run from lib/sindarin/ to find templates
+          $LibDir = Join-Path $InstallDir "lib\sindarin"
+          echo $LibDir | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          Write-Host "Installed: $(& (Join-Path $LibDir 'sn.exe') --version)"
           Remove-Item -Path $tempDir -Recurse -Force
 
       - name: Verify compiler
