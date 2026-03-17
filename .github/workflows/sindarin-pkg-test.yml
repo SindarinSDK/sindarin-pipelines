@@ -12,7 +12,7 @@ on:
   workflow_call:
 
 jobs:
-  sindarin-package-test:
+  sindarin-pkg-test:
     name: Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
