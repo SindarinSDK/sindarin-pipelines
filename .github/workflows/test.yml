@@ -159,9 +159,12 @@ jobs:
           echo "=== Compiler version ==="
           sn --version
           echo ""
-          echo "=== Attempting single test with verbose output ==="
-          TEST_FILE=$(find tests -name "test_*.sn" -type f | head -1)
-          if [ -n "$TEST_FILE" ]; then
-            echo "Compiling: $TEST_FILE"
-            sn "$TEST_FILE" -o /tmp/diag_test -v -l 4 2>&1 || true
-          fi
+          echo "=== Attempting failing tests with verbose output ==="
+          for TEST_NAME in test_random test_yaml test_json test_xml test_rwlock; do
+            TEST_FILE=$(find tests -name "${TEST_NAME}.sn" -type f | head -1)
+            if [ -n "$TEST_FILE" ]; then
+              echo ""
+              echo "--- Compiling: $TEST_FILE ---"
+              sn "$TEST_FILE" -o /tmp/diag_test -v -l 2 2>&1 || true
+            fi
+          done
