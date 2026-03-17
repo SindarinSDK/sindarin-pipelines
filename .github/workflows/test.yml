@@ -72,21 +72,74 @@ jobs:
         run: choco install make -y
 
       #------------------------------------------------------------------------
-      # Install Sindarin compiler
+      # Install Sindarin compiler from latest release
       #------------------------------------------------------------------------
       - name: Install Sindarin (Linux/macOS)
         if: runner.os != 'Windows'
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          curl -fsSL https://raw.githubusercontent.com/SindarinSDK/sindarin-compiler/main/scripts/install.sh | bash
-          echo "$HOME/.sn/bin" >> "$GITHUB_PATH"
+          INSTALL_DIR="$HOME/.sn"
+          rm -rf "$INSTALL_DIR"
+          mkdir -p "$INSTALL_DIR"
+
+          # Detect platform
+          OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+          ARCH=$(uname -m)
+          case "$ARCH" in
+            x86_64|amd64) ARCH="x64" ;;
+            aarch64|arm64) ARCH="arm64" ;;
+          esac
+
+          # Download and extract latest release
+          PATTERN="sindarin-*-${OS}-${ARCH}.tar.gz"
+          echo "Downloading latest release matching: $PATTERN"
+          gh release download --repo SindarinSDK/sindarin-compiler --pattern "$PATTERN" --dir /tmp
+          TARBALL=$(ls /tmp/sindarin-*-${OS}-${ARCH}.tar.gz)
+          tar -xzf "$TARBALL" -C "$INSTALL_DIR"
+
+          # Flatten nested directory
+          NESTED=$(find "$INSTALL_DIR" -mindepth 1 -maxdepth 1 -type d)
+          if [ -d "$NESTED/bin" ]; then
+            mv "$NESTED"/* "$INSTALL_DIR/"
+            rmdir "$NESTED"
+          fi
+
+          chmod +x "$INSTALL_DIR/bin/sn"
+          echo "$INSTALL_DIR/bin" >> "$GITHUB_PATH"
+          echo "Installed: $($INSTALL_DIR/bin/sn --version)"
 
       - name: Install Sindarin (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          irm https://raw.githubusercontent.com/SindarinSDK/sindarin-compiler/main/scripts/install.ps1 | iex
-          echo "$env:USERPROFILE\.sn\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          $InstallDir = Join-Path $env:USERPROFILE ".sn"
+          if (Test-Path $InstallDir) { Remove-Item -Path $InstallDir -Recurse -Force }
+          New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
+
+          # Download latest Windows release
+          $tempDir = Join-Path $env:TEMP "sn-install"
+          New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
+          gh release download --repo SindarinSDK/sindarin-compiler --pattern "sindarin-*-windows-x64.zip" --dir $tempDir
+
+          $zipFile = Get-ChildItem -Path $tempDir -Filter "sindarin-*-windows-x64.zip" | Select-Object -First 1
+          Write-Host "Extracting $($zipFile.Name)..."
+          Expand-Archive -Path $zipFile.FullName -DestinationPath $InstallDir -Force
+
+          # Flatten nested directory
+          $nested = Get-ChildItem -Path $InstallDir -Directory
+          if ($nested.Count -eq 1 -and (Test-Path (Join-Path $nested[0].FullName "bin"))) {
+            Get-ChildItem -Path $nested[0].FullName | Move-Item -Destination $InstallDir -Force
+            Remove-Item -Path $nested[0].FullName -Force
+          }
+
+          $binDir = Join-Path $InstallDir "bin"
+          echo $binDir | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          Write-Host "Installed: $(& (Join-Path $binDir 'sn.exe') --version)"
+          Remove-Item -Path $tempDir -Recurse -Force
 
       - name: Verify compiler
         shell: bash
