@@ -140,6 +140,8 @@ jobs:
       #------------------------------------------------------------------------
       - name: Install dependencies
         shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: sn --install
 
       - name: Run tests
