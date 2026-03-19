@@ -27,64 +27,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      #------------------------------------------------------------------------
-      # Platform prerequisites
-      #------------------------------------------------------------------------
-      - name: Setup Prerequisites (Linux/macOS)
-        if: runner.os != 'Windows'
-        shell: bash
-        run: |
-          curl -fsSL https://raw.githubusercontent.com/SindarinSDK/sindarin-compiler/main/scripts/install-prereqs.sh \
-            -o /tmp/install-prereqs.sh
-          bash /tmp/install-prereqs.sh
+      - name: Setup Prerequisites
+        uses: SindarinSDK/sindarin-pipelines/.github/actions/setup-prereqs@main
 
-      - name: Setup Prerequisites (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $scriptPath = "$env:TEMP\install-prereqs.ps1"
-          Invoke-WebRequest `
-            -Uri "https://raw.githubusercontent.com/SindarinSDK/sindarin-compiler/main/scripts/install-prereqs.ps1" `
-            -OutFile $scriptPath
-          & $scriptPath
+      - name: Install Sindarin
+        uses: SindarinSDK/sindarin-pipelines/.github/actions/install-sindarin@main
+        with:
+          github-token: ${{ github.token }}
 
-      #------------------------------------------------------------------------
-      # Install Sindarin compiler from latest release
-      #------------------------------------------------------------------------
-      - name: Install Sindarin (Linux/macOS)
-        if: runner.os != 'Windows'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          curl -fsSL https://raw.githubusercontent.com/SindarinSDK/sindarin-compiler/main/scripts/install.sh \
-            -o /tmp/install.sh
-          bash /tmp/install.sh
-
-      - name: Install Sindarin (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          $scriptPath = "$env:TEMP\install.ps1"
-          Invoke-WebRequest `
-            -Uri "https://raw.githubusercontent.com/SindarinSDK/sindarin-compiler/main/scripts/install.ps1" `
-            -OutFile $scriptPath
-          & $scriptPath
-
-      - name: Verify compiler
-        shell: bash
-        run: sn --version
-
-      #------------------------------------------------------------------------
-      # Install dependencies and test
-      #------------------------------------------------------------------------
       - name: Install dependencies
-        shell: bash
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: sn --install
+        uses: SindarinSDK/sindarin-pipelines/.github/actions/install-deps@main
+        with:
+          github-token: ${{ github.token }}
 
       - name: Run tests
         shell: bash
@@ -92,17 +46,4 @@ jobs:
 
       - name: Diagnose compile errors
         if: failure()
-        shell: bash
-        run: |
-          echo "=== Compiler version ==="
-          sn --version
-          echo ""
-          echo "=== Attempting failing tests with verbose output ==="
-          for TEST_NAME in test_random test_crypto test_tls test_git; do
-            TEST_FILE=$(find tests -name "${TEST_NAME}.sn" -type f | head -1)
-            if [ -n "$TEST_FILE" ]; then
-              echo ""
-              echo "--- Compiling: $TEST_FILE ---"
-              sn "$TEST_FILE" -o /tmp/diag_test -v -l 2 2>&1 || true
-            fi
-          done
+        uses: SindarinSDK/sindarin-pipelines/.github/actions/diagnose-pkg@main

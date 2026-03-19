@@ -1,0 +1,36 @@
+name: Install Sindarin
+description: Install the Sindarin compiler from the latest GitHub release.
+
+inputs:
+  github-token:
+    description: GitHub token for authenticated release downloads.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Install Sindarin (Linux/macOS)
+      if: runner.os != 'Windows'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+      run: |
+        curl -fsSL https://raw.githubusercontent.com/SindarinSDK/sindarin-compiler/main/scripts/install.sh \
+          -o /tmp/install.sh
+        bash /tmp/install.sh
+
+    - name: Install Sindarin (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+      run: |
+        $scriptPath = "$env:TEMP\install.ps1"
+        Invoke-WebRequest `
+          -Uri "https://raw.githubusercontent.com/SindarinSDK/sindarin-compiler/main/scripts/install.ps1" `
+          -OutFile $scriptPath
+        & $scriptPath
+
+    - name: Verify compiler
+      shell: bash
+      run: sn --version

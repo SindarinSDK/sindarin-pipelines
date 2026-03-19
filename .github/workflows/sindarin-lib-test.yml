@@ -27,26 +27,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      #------------------------------------------------------------------------
-      # Platform prerequisites
-      #------------------------------------------------------------------------
-      - name: Setup Prerequisites (Linux/macOS)
-        if: runner.os != 'Windows'
-        shell: bash
-        run: |
-          curl -fsSL https://raw.githubusercontent.com/SindarinSDK/sindarin-compiler/main/scripts/install-prereqs.sh \
-            -o /tmp/install-prereqs.sh
-          bash /tmp/install-prereqs.sh
-
-      - name: Setup Prerequisites (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $scriptPath = "$env:TEMP\install-prereqs.ps1"
-          Invoke-WebRequest `
-            -Uri "https://raw.githubusercontent.com/SindarinSDK/sindarin-compiler/main/scripts/install-prereqs.ps1" `
-            -OutFile $scriptPath
-          & $scriptPath
+      - name: Setup Prerequisites
+        uses: SindarinSDK/sindarin-pipelines/.github/actions/setup-prereqs@main
 
       #------------------------------------------------------------------------
       # Bootstrap vcpkg

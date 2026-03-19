@@ -1,0 +1,16 @@
+name: Install Dependencies
+description: Install Sindarin package dependencies via sn --install.
+
+inputs:
+  github-token:
+    description: GitHub token for authenticated package downloads.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Install dependencies
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: sn --install
