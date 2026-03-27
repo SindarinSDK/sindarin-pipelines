@@ -40,6 +40,10 @@ jobs:
         with:
           github-token: ${{ github.token }}
 
+      - name: Check formatting
+        shell: bash
+        run: sn --format --check
+
       - name: Run tests
         shell: bash
         run: make test
