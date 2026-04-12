@@ -156,3 +156,7 @@ jobs:
 | make        | included             | included      | Chocolatey      |
 | cmake       | pre-installed        | pre-installed | pre-installed   |
 | vcpkg       | —                    | —             | bootstrapped (lib workflow only) |
+
+## License
+
+[MIT License](LICENSE)
