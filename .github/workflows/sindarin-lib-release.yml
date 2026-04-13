@@ -91,7 +91,7 @@ jobs:
       - name: Bootstrap vcpkg
         run: |
           if [ ! -d "$HOME/vcpkg" ]; then
-            git clone --depth=1 https://github.com/microsoft/vcpkg.git "$HOME/vcpkg"
+            git clone https://github.com/microsoft/vcpkg.git "$HOME/vcpkg"
           fi
           "$HOME/vcpkg/bootstrap-vcpkg.sh" -disableMetrics
           echo "VCPKG_ROOT=$HOME/vcpkg" >> "$GITHUB_ENV"
@@ -159,7 +159,7 @@ jobs:
       - name: Bootstrap vcpkg
         run: |
           if [ ! -d "$HOME/vcpkg" ]; then
-            git clone --depth=1 https://github.com/microsoft/vcpkg.git "$HOME/vcpkg"
+            git clone https://github.com/microsoft/vcpkg.git "$HOME/vcpkg"
           fi
           "$HOME/vcpkg/bootstrap-vcpkg.sh" -disableMetrics
           echo "VCPKG_ROOT=$HOME/vcpkg" >> "$GITHUB_ENV"
@@ -247,7 +247,7 @@ jobs:
         shell: pwsh
         run: |
           if (-not (Test-Path "$env:USERPROFILE\vcpkg")) {
-            git clone --depth=1 https://github.com/microsoft/vcpkg.git "$env:USERPROFILE\vcpkg"
+            git clone https://github.com/microsoft/vcpkg.git "$env:USERPROFILE\vcpkg"
           }
           & "$env:USERPROFILE\vcpkg\bootstrap-vcpkg.bat" -disableMetrics
           $vcpkgRoot = "$env:USERPROFILE\vcpkg".Replace('\', '/')
