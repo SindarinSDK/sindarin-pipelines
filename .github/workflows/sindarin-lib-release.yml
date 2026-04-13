@@ -1,8 +1,9 @@
 # Reusable CI workflow for building and releasing Sindarin native C libraries.
-# Bootstraps vcpkg, caches binary artifacts, delegates the build to `make release-build`,
+# Installs the Sindarin compiler (which bootstraps all prereqs including vcpkg),
+# caches binary artifacts, delegates the build to `make build`,
 # then packages the output and creates a GitHub release.
 #
-# Each consuming package must provide a Makefile `release-build` target that:
+# Each consuming package must provide a Makefile `build` target that:
 #   - Uses VCPKG_ROOT (env) to locate the bootstrapped vcpkg installation
 #   - Uses TRIPLET   (env) for the vcpkg triplet  (e.g. x64-linux, arm64-osx)
 #   - Uses PLATFORM  (env) for the output dir name (linux | darwin | windows)
@@ -81,20 +82,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup prerequisites
-        uses: SindarinSDK/sindarin-pipelines/.github/actions/setup-prereqs@main
+      - name: Install Sindarin compiler
+        uses: SindarinSDK/sindarin-pipelines/.github/actions/install-sindarin@main
 
       - name: Install extra system dependencies
         if: inputs.apt-packages != ''
         run: sudo apt-get update && sudo apt-get install -y ${{ inputs.apt-packages }}
-
-      - name: Bootstrap vcpkg
-        run: |
-          if [ ! -d "$HOME/vcpkg" ]; then
-            git clone https://github.com/microsoft/vcpkg.git "$HOME/vcpkg"
-          fi
-          "$HOME/vcpkg/bootstrap-vcpkg.sh" -disableMetrics
-          echo "VCPKG_ROOT=$HOME/vcpkg" >> "$GITHUB_ENV"
 
       - name: Cache vcpkg binary cache
         uses: actions/cache@v4
@@ -104,13 +97,10 @@ jobs:
           restore-keys: |
             vcpkg-linux-${{ matrix.arch }}-
 
-      - name: Install Sindarin compiler
-        uses: SindarinSDK/sindarin-pipelines/.github/actions/install-sindarin@main
-
       - name: Build and package libraries
         run: |
           mkdir -p "$VCPKG_DEFAULT_BINARY_CACHE"
-          make release-build
+          make build
         env:
           TRIPLET: ${{ matrix.triplet }}
           PLATFORM: linux
@@ -153,20 +143,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup prerequisites
-        uses: SindarinSDK/sindarin-pipelines/.github/actions/setup-prereqs@main
+      - name: Install Sindarin compiler
+        uses: SindarinSDK/sindarin-pipelines/.github/actions/install-sindarin@main
 
       - name: Install extra system dependencies
         if: inputs.brew-packages != ''
         run: brew install ${{ inputs.brew-packages }}
-
-      - name: Bootstrap vcpkg
-        run: |
-          if [ ! -d "$HOME/vcpkg" ]; then
-            git clone https://github.com/microsoft/vcpkg.git "$HOME/vcpkg"
-          fi
-          "$HOME/vcpkg/bootstrap-vcpkg.sh" -disableMetrics
-          echo "VCPKG_ROOT=$HOME/vcpkg" >> "$GITHUB_ENV"
 
       - name: Cache vcpkg binary cache
         uses: actions/cache@v4
@@ -176,13 +158,10 @@ jobs:
           restore-keys: |
             vcpkg-darwin-${{ matrix.arch }}-
 
-      - name: Install Sindarin compiler
-        uses: SindarinSDK/sindarin-pipelines/.github/actions/install-sindarin@main
-
       - name: Build and package libraries
         run: |
           mkdir -p "$VCPKG_DEFAULT_BINARY_CACHE"
-          make release-build
+          make build
         env:
           TRIPLET: ${{ matrix.triplet }}
           HOST_TRIPLET: ${{ matrix.host_triplet }}
@@ -215,51 +194,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Remove system LLVM (conflicts with MinGW)
-        shell: pwsh
-        run: |
-          if (Test-Path "C:\Program Files\LLVM") {
-            Remove-Item -Recurse -Force "C:\Program Files\LLVM"
-          }
-
-      - name: Cache LLVM-MinGW
-        id: cache-llvm-mingw
-        uses: actions/cache@v4
-        with:
-          path: C:\llvm-mingw
-          key: llvm-mingw-20241217
-
-      - name: Install LLVM-MinGW
-        if: steps.cache-llvm-mingw.outputs.cache-hit != 'true'
-        shell: pwsh
-        run: |
-          $url = "https://github.com/mstorsjo/llvm-mingw/releases/download/20241217/llvm-mingw-20241217-ucrt-x86_64.zip"
-          Invoke-WebRequest -Uri $url -OutFile "llvm-mingw.zip"
-          Expand-Archive -Path "llvm-mingw.zip" -DestinationPath "C:\"
-          Rename-Item "C:\llvm-mingw-20241217-ucrt-x86_64" "C:\llvm-mingw"
-
-      - name: Add LLVM-MinGW to PATH
-        shell: pwsh
-        run: echo "C:\llvm-mingw\bin" >> $env:GITHUB_PATH
-
-      - name: Install build tools
-        shell: pwsh
-        run: choco install ninja -y
+      - name: Install Sindarin compiler
+        uses: SindarinSDK/sindarin-pipelines/.github/actions/install-sindarin@main
 
       - name: Install extra Windows packages
         if: inputs.choco-packages != ''
         shell: pwsh
         run: choco install ${{ inputs.choco-packages }} -y
-
-      - name: Bootstrap vcpkg
-        shell: pwsh
-        run: |
-          if (-not (Test-Path "$env:USERPROFILE\vcpkg")) {
-            git clone https://github.com/microsoft/vcpkg.git "$env:USERPROFILE\vcpkg"
-          }
-          & "$env:USERPROFILE\vcpkg\bootstrap-vcpkg.bat" -disableMetrics
-          $vcpkgRoot = "$env:USERPROFILE\vcpkg".Replace('\', '/')
-          "VCPKG_ROOT=$vcpkgRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Cache vcpkg binary cache
         uses: actions/cache@v4
@@ -269,15 +210,12 @@ jobs:
           restore-keys: |
             vcpkg-windows-x64-
 
-      - name: Install Sindarin compiler
-        uses: SindarinSDK/sindarin-pipelines/.github/actions/install-sindarin@main
-
       - name: Build and package libraries
         shell: bash
         run: |
           mkdir -p "$VCPKG_DEFAULT_BINARY_CACHE"
           export PATH="$HOME/.sn/bin:$PATH"
-          make release-build
+          make build
         env:
           TRIPLET: x64-mingw-static
           PLATFORM: windows

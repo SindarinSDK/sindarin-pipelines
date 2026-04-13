@@ -27,16 +27,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Prerequisites
-        uses: SindarinSDK/sindarin-pipelines/.github/actions/setup-prereqs@main
-
       - name: Install Sindarin
         uses: SindarinSDK/sindarin-pipelines/.github/actions/install-sindarin@main
-
-      - name: Install dependencies
-        uses: SindarinSDK/sindarin-pipelines/.github/actions/install-deps@main
-        with:
-          github-token: ${{ github.token }}
 
       - name: Check formatting
         shell: bash
@@ -45,7 +37,3 @@ jobs:
       - name: Run tests
         shell: bash
         run: make test
-
-      - name: Diagnose compile errors
-        if: failure()
-        uses: SindarinSDK/sindarin-pipelines/.github/actions/diagnose-pkg@main

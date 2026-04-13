@@ -24,4 +24,4 @@ runs:
 
     - name: Verify compiler
       shell: bash
-      run: sn --version
+      run: sn --version && sn --install
