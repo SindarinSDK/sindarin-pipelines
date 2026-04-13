@@ -105,16 +105,7 @@ jobs:
             vcpkg-linux-${{ matrix.arch }}-
 
       - name: Install Sindarin compiler
-        run: |
-          S3_BASE="https://cryosharp-sindarin-pkg-binaries.s3.eu-west-2.amazonaws.com"
-          VER=$(curl -fsSL "${S3_BASE}/sindarin-compiler/__version__")
-          VER_NUM=$(echo "$VER" | sed 's/^v//')
-          ARCH=$(uname -m | sed 's/x86_64/x64/' | sed 's/aarch64/arm64/')
-          URL="${S3_BASE}/sindarin-compiler/${VER}/sindarin-${VER_NUM}-linux-${ARCH}.tar.gz"
-          mkdir -p "$HOME/.sn"
-          curl -fSL "$URL" -o /tmp/sn.tar.gz
-          tar -xzf /tmp/sn.tar.gz -C "$HOME/.sn"
-          echo "$HOME/.sn/bin" >> "$GITHUB_PATH"
+        uses: SindarinSDK/sindarin-pipelines/.github/actions/install-sindarin@main
 
       - name: Build and package libraries
         run: |
@@ -185,16 +176,7 @@ jobs:
             vcpkg-darwin-${{ matrix.arch }}-
 
       - name: Install Sindarin compiler
-        run: |
-          S3_BASE="https://cryosharp-sindarin-pkg-binaries.s3.eu-west-2.amazonaws.com"
-          VER=$(curl -fsSL "${S3_BASE}/sindarin-compiler/__version__")
-          VER_NUM=$(echo "$VER" | sed 's/^v//')
-          ARCH=$(uname -m | sed 's/x86_64/x64/' | sed 's/arm64/arm64/')
-          URL="${S3_BASE}/sindarin-compiler/${VER}/sindarin-${VER_NUM}-darwin-${ARCH}.tar.gz"
-          mkdir -p "$HOME/.sn"
-          curl -fSL "$URL" -o /tmp/sn.tar.gz
-          tar -xzf /tmp/sn.tar.gz -C "$HOME/.sn"
-          echo "$HOME/.sn/bin" >> "$GITHUB_PATH"
+        uses: SindarinSDK/sindarin-pipelines/.github/actions/install-sindarin@main
 
       - name: Build and package libraries
         run: |
@@ -286,16 +268,7 @@ jobs:
             vcpkg-windows-x64-
 
       - name: Install Sindarin compiler
-        shell: bash
-        run: |
-          S3_BASE="https://cryosharp-sindarin-pkg-binaries.s3.eu-west-2.amazonaws.com"
-          VER=$(curl -fsSL "${S3_BASE}/sindarin-compiler/__version__")
-          VER_NUM=$(echo "$VER" | sed 's/^v//')
-          URL="${S3_BASE}/sindarin-compiler/${VER}/sindarin-${VER_NUM}-windows-x64.zip"
-          mkdir -p "$HOME/.sn"
-          curl -fSL "$URL" -o /tmp/sn.zip
-          unzip -o /tmp/sn.zip -d "$HOME/.sn"
-          echo "$HOME/.sn/bin" >> "$GITHUB_PATH"
+        uses: SindarinSDK/sindarin-pipelines/.github/actions/install-sindarin@main
 
       - name: Build and package libraries
         shell: bash
