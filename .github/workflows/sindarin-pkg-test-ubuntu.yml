@@ -1,0 +1,32 @@
+# Reusable CI workflow for Sindarin packages (Ubuntu only)
+# Installs the compiler from latest release, installs deps, runs make test.
+#
+# Usage (in calling repo's .github/workflows/ci.yml):
+#   jobs:
+#     test:
+#       uses: SindarinSDK/sindarin-pipelines/.github/workflows/sindarin-pkg-test-ubuntu.yml@main
+
+name: Sindarin Package Test (Ubuntu)
+
+on:
+  workflow_call:
+
+jobs:
+  sindarin-pkg-test:
+    name: Test (ubuntu-latest)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Sindarin
+        uses: SindarinSDK/sindarin-pipelines/.github/actions/install-sindarin@main
+
+      - name: Check formatting
+        shell: bash
+        run: sn --format --check
+
+      - name: Run tests
+        shell: bash
+        run: make test
