@@ -104,6 +104,11 @@ jobs:
           restore-keys: |
             vcpkg-linux-${{ matrix.arch }}-
 
+      - name: Install Sindarin compiler
+        run: curl -fsSL https://raw.githubusercontent.com/SindarinSDK/sindarin-compiler/main/scripts/install.sh | bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - name: Build and package libraries
         run: |
           mkdir -p "$VCPKG_DEFAULT_BINARY_CACHE"
@@ -171,6 +176,11 @@ jobs:
           key: vcpkg-darwin-${{ matrix.arch }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
           restore-keys: |
             vcpkg-darwin-${{ matrix.arch }}-
+
+      - name: Install Sindarin compiler
+        run: curl -fsSL https://raw.githubusercontent.com/SindarinSDK/sindarin-compiler/main/scripts/install.sh | bash
+        env:
+          GH_TOKEN: ${{ github.token }}
 
       - name: Build and package libraries
         run: |
@@ -261,10 +271,17 @@ jobs:
           restore-keys: |
             vcpkg-windows-x64-
 
+      - name: Install Sindarin compiler
+        shell: pwsh
+        run: irm https://raw.githubusercontent.com/SindarinSDK/sindarin-compiler/main/scripts/install.ps1 | iex
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - name: Build and package libraries
         shell: bash
         run: |
           mkdir -p "$VCPKG_DEFAULT_BINARY_CACHE"
+          export PATH="$HOME/.sn/bin:$PATH"
           make release-build
         env:
           TRIPLET: x64-mingw-static
