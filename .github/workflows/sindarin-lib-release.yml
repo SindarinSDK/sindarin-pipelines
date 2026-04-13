@@ -1,0 +1,330 @@
+# Reusable CI workflow for building and releasing Sindarin native C libraries.
+# Bootstraps vcpkg, caches binary artifacts, delegates the build to `make release-build`,
+# then packages the output and creates a GitHub release.
+#
+# Each consuming package must provide a Makefile `release-build` target that:
+#   - Uses VCPKG_ROOT (env) to locate the bootstrapped vcpkg installation
+#   - Uses TRIPLET   (env) for the vcpkg triplet  (e.g. x64-linux, arm64-osx)
+#   - Uses PLATFORM  (env) for the output dir name (linux | darwin | windows)
+#   - Uses ARCH      (env) for the architecture    (x64 | arm64)
+#   - Uses VERSION   (env) for the release version
+#   - Produces:  libs/<PLATFORM>/lib/     (.a files)
+#                libs/<PLATFORM>/include/ (headers)
+#                libs/<PLATFORM>/VERSION  (version string)
+#                libs/<PLATFORM>/PLATFORM (platform name)
+#
+# Usage (in calling repo's .github/workflows/release.yml):
+#
+#   name: Release
+#   on:
+#     push:
+#       tags: ['*']
+#     workflow_dispatch:
+#       inputs:
+#         version:
+#           description: 'Version to release'
+#           required: true
+#           type: string
+#
+#   jobs:
+#     release:
+#       uses: SindarinSDK/sindarin-pipelines/.github/workflows/sindarin-lib-release.yml@main
+#       with:
+#         package-name: sindarin-net-quic
+
+name: Sindarin Lib Release
+
+on:
+  workflow_call:
+    inputs:
+      package-name:
+        description: 'Archive name prefix (e.g. sindarin-net-quic, sindarin-libs)'
+        required: true
+        type: string
+      apt-packages:
+        description: 'Extra apt packages for Linux builds (space-separated)'
+        required: false
+        type: string
+        default: ''
+      brew-packages:
+        description: 'Extra brew packages for macOS builds (space-separated)'
+        required: false
+        type: string
+        default: ''
+      choco-packages:
+        description: 'Extra choco packages for Windows builds (space-separated)'
+        required: false
+        type: string
+        default: ''
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Linux (x64 + arm64)
+  # ---------------------------------------------------------------------------
+  build-linux:
+    name: Build Linux (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: ubuntu-latest
+            triplet: x64-linux
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            triplet: arm64-linux
+    env:
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/.vcpkg-cache
+      VERSION: ${{ github.event.inputs.version || github.ref_name }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup prerequisites
+        uses: SindarinSDK/sindarin-pipelines/.github/actions/setup-prereqs@main
+
+      - name: Install extra system dependencies
+        if: inputs.apt-packages != ''
+        run: sudo apt-get update && sudo apt-get install -y ${{ inputs.apt-packages }}
+
+      - name: Bootstrap vcpkg
+        run: |
+          if [ ! -d "$HOME/vcpkg" ]; then
+            git clone --depth=1 https://github.com/microsoft/vcpkg.git "$HOME/vcpkg"
+          fi
+          "$HOME/vcpkg/bootstrap-vcpkg.sh" -disableMetrics
+          echo "VCPKG_ROOT=$HOME/vcpkg" >> "$GITHUB_ENV"
+
+      - name: Cache vcpkg binary cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: vcpkg-linux-${{ matrix.arch }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          restore-keys: |
+            vcpkg-linux-${{ matrix.arch }}-
+
+      - name: Build and package libraries
+        run: |
+          mkdir -p "$VCPKG_DEFAULT_BINARY_CACHE"
+          make release-build
+        env:
+          TRIPLET: ${{ matrix.triplet }}
+          PLATFORM: linux
+          ARCH: ${{ matrix.arch }}
+
+      - name: Verify output
+        run: |
+          echo "=== libs/linux ==="
+          ls -la libs/linux/lib/*.a 2>/dev/null || echo "No .a files found"
+          echo "Total libraries: $(ls libs/linux/lib/*.a 2>/dev/null | wc -l)"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: libs-linux-${{ matrix.arch }}
+          path: libs/linux/
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------
+  # macOS (x64 + arm64)
+  # ---------------------------------------------------------------------------
+  build-darwin:
+    name: Build Darwin (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: macos-15
+            triplet: x64-osx
+          - arch: arm64
+            runner: macos-latest
+            triplet: arm64-osx
+    env:
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/.vcpkg-cache
+      VERSION: ${{ github.event.inputs.version || github.ref_name }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup prerequisites
+        uses: SindarinSDK/sindarin-pipelines/.github/actions/setup-prereqs@main
+
+      - name: Install extra system dependencies
+        if: inputs.brew-packages != ''
+        run: brew install ${{ inputs.brew-packages }}
+
+      - name: Bootstrap vcpkg
+        run: |
+          if [ ! -d "$HOME/vcpkg" ]; then
+            git clone --depth=1 https://github.com/microsoft/vcpkg.git "$HOME/vcpkg"
+          fi
+          "$HOME/vcpkg/bootstrap-vcpkg.sh" -disableMetrics
+          echo "VCPKG_ROOT=$HOME/vcpkg" >> "$GITHUB_ENV"
+
+      - name: Cache vcpkg binary cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: vcpkg-darwin-${{ matrix.arch }}-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          restore-keys: |
+            vcpkg-darwin-${{ matrix.arch }}-
+
+      - name: Build and package libraries
+        run: |
+          mkdir -p "$VCPKG_DEFAULT_BINARY_CACHE"
+          make release-build
+        env:
+          TRIPLET: ${{ matrix.triplet }}
+          PLATFORM: darwin
+          ARCH: ${{ matrix.arch }}
+
+      - name: Verify output
+        run: |
+          echo "=== libs/darwin ==="
+          ls -la libs/darwin/lib/*.a 2>/dev/null || echo "No .a files found"
+          echo "Total libraries: $(ls libs/darwin/lib/*.a 2>/dev/null | wc -l)"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: libs-darwin-${{ matrix.arch }}
+          path: libs/darwin/
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------
+  # Windows (x64 only)
+  # ---------------------------------------------------------------------------
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+    env:
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}\.vcpkg-cache
+      VERSION: ${{ github.event.inputs.version || github.ref_name }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Remove system LLVM (conflicts with MinGW)
+        shell: pwsh
+        run: |
+          if (Test-Path "C:\Program Files\LLVM") {
+            Remove-Item -Recurse -Force "C:\Program Files\LLVM"
+          }
+
+      - name: Cache LLVM-MinGW
+        id: cache-llvm-mingw
+        uses: actions/cache@v4
+        with:
+          path: C:\llvm-mingw
+          key: llvm-mingw-20241217
+
+      - name: Install LLVM-MinGW
+        if: steps.cache-llvm-mingw.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $url = "https://github.com/mstorsjo/llvm-mingw/releases/download/20241217/llvm-mingw-20241217-ucrt-x86_64.zip"
+          Invoke-WebRequest -Uri $url -OutFile "llvm-mingw.zip"
+          Expand-Archive -Path "llvm-mingw.zip" -DestinationPath "C:\"
+          Rename-Item "C:\llvm-mingw-20241217-ucrt-x86_64" "C:\llvm-mingw"
+
+      - name: Add LLVM-MinGW to PATH
+        shell: pwsh
+        run: echo "C:\llvm-mingw\bin" >> $env:GITHUB_PATH
+
+      - name: Install build tools
+        shell: pwsh
+        run: choco install ninja -y
+
+      - name: Install extra Windows packages
+        if: inputs.choco-packages != ''
+        shell: pwsh
+        run: choco install ${{ inputs.choco-packages }} -y
+
+      - name: Bootstrap vcpkg
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "$env:USERPROFILE\vcpkg")) {
+            git clone --depth=1 https://github.com/microsoft/vcpkg.git "$env:USERPROFILE\vcpkg"
+          }
+          & "$env:USERPROFILE\vcpkg\bootstrap-vcpkg.bat" -disableMetrics
+          $vcpkgRoot = "$env:USERPROFILE\vcpkg".Replace('\', '/')
+          "VCPKG_ROOT=$vcpkgRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Cache vcpkg binary cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
+          key: vcpkg-windows-x64-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          restore-keys: |
+            vcpkg-windows-x64-
+
+      - name: Build and package libraries
+        shell: bash
+        run: |
+          mkdir -p "$VCPKG_DEFAULT_BINARY_CACHE"
+          make release-build
+        env:
+          TRIPLET: x64-mingw-static
+          PLATFORM: windows
+          ARCH: x64
+
+      - name: Verify output
+        shell: bash
+        run: |
+          echo "=== libs/windows ==="
+          ls -la libs/windows/lib/*.a 2>/dev/null || echo "No .a files found"
+          echo "Total libraries: $(ls libs/windows/lib/*.a 2>/dev/null | wc -l)"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: libs-windows
+          path: libs/windows/
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------
+  # Create GitHub Release with all platform archives
+  # ---------------------------------------------------------------------------
+  create-release:
+    name: Create Release
+    needs: [build-linux, build-darwin, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ github.event.inputs.version || github.ref_name }}
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Create archives
+        run: |
+          PKG="${{ inputs.package-name }}"
+          VER="${{ env.VERSION }}"
+
+          tar -czvf "${PKG}-${VER}-linux-x64.tar.gz"    -C artifacts/libs-linux-x64    .
+          tar -czvf "${PKG}-${VER}-linux-arm64.tar.gz"   -C artifacts/libs-linux-arm64   .
+          tar -czvf "${PKG}-${VER}-darwin-x64.tar.gz"    -C artifacts/libs-darwin-x64    .
+          tar -czvf "${PKG}-${VER}-darwin-arm64.tar.gz"   -C artifacts/libs-darwin-arm64   .
+          cd artifacts/libs-windows && zip -r "../../${PKG}-${VER}-windows-x64.zip" . && cd ../..
+
+          echo "Created archives:"
+          ls -la *.tar.gz *.zip
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "${{ inputs.package-name }} ${{ env.VERSION }}"
+          tag_name: ${{ env.VERSION }}
+          draft: false
+          generate_release_notes: true
+          files: |
+            ${{ inputs.package-name }}-*.tar.gz
+            ${{ inputs.package-name }}-*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

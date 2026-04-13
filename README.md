@@ -100,6 +100,71 @@ jobs:
 
 ---
 
+### `sindarin-lib-release.yml` — Native Library Release
+
+For packages that build native C libraries via vcpkg and publish them as GitHub releases.
+Each consuming package provides a `make release-build` target that runs vcpkg install and
+packages the output into `libs/<platform>/`.
+
+**Usage:**
+
+```yaml
+name: Release
+
+on:
+  push:
+    tags: ['*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release'
+        required: true
+        type: string
+
+jobs:
+  release:
+    uses: SindarinSDK/sindarin-pipelines/.github/workflows/sindarin-lib-release.yml@main
+    with:
+      package-name: sindarin-net-quic
+```
+
+**Inputs:**
+
+| Input | Required | Description |
+|-------|----------|-------------|
+| `package-name` | yes | Archive name prefix (e.g. `sindarin-net-quic`) |
+| `apt-packages` | no | Extra apt packages for Linux builds |
+| `brew-packages` | no | Extra brew packages for macOS builds |
+| `choco-packages` | no | Extra choco packages for Windows builds |
+
+**Makefile contract — `release-build` target:**
+
+The workflow passes these environment variables to `make release-build`:
+
+| Env Var | Example | Description |
+|---------|---------|-------------|
+| `VCPKG_ROOT` | `$HOME/vcpkg` | Path to bootstrapped vcpkg |
+| `TRIPLET` | `x64-linux` | vcpkg triplet |
+| `PLATFORM` | `linux` | Output directory name |
+| `ARCH` | `x64` | Architecture |
+| `VERSION` | `v0.0.5` | Release version |
+
+The target must produce:
+
+```
+libs/<PLATFORM>/
+├── lib/        # .a static libraries
+├── include/    # headers
+├── VERSION     # version string
+└── PLATFORM    # platform name
+```
+
+**Platforms:** Linux (x64, arm64), macOS (x64, arm64), Windows (x64)
+
+**Used by:** `sindarin-pkg-libs`, `sindarin-pkg-net-quic`, `sindarin-pkg-tensor`, `sindarin-pkg-sqlserver`
+
+---
+
 ## Packages with External Services
 
 Packages that require external services (databases, etc.) define their own job in `.github/workflows/ci.yml` and use the composite actions directly. This gives full control over service configuration while still sharing the common install/test steps.
@@ -155,7 +220,7 @@ jobs:
 | C compiler  | gcc (`build-essential`) | Xcode clang | LLVM-MinGW      |
 | make        | included             | included      | Chocolatey      |
 | cmake       | pre-installed        | pre-installed | pre-installed   |
-| vcpkg       | —                    | —             | bootstrapped (lib workflow only) |
+| vcpkg       | bootstrapped         | bootstrapped  | bootstrapped    |
 
 ## License
 
