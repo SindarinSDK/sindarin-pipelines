@@ -106,8 +106,11 @@ jobs:
 
       - name: Install Sindarin compiler
         run: |
+          S3_BASE="https://cryosharp-sindarin-pkg-binaries.s3.eu-west-2.amazonaws.com"
+          VER=$(curl -fsSL "${S3_BASE}/sindarin-compiler/__version__")
+          VER_NUM=$(echo "$VER" | sed 's/^v//')
           ARCH=$(uname -m | sed 's/x86_64/x64/' | sed 's/aarch64/arm64/')
-          URL="https://cryosharp-sindarin-pkg-binaries.s3.eu-west-2.amazonaws.com/sindarin-compiler/v0.0.63/sindarin-0.0.63-linux-${ARCH}.tar.gz"
+          URL="${S3_BASE}/sindarin-compiler/${VER}/sindarin-${VER_NUM}-linux-${ARCH}.tar.gz"
           mkdir -p "$HOME/.sn"
           curl -fSL "$URL" -o /tmp/sn.tar.gz
           tar -xzf /tmp/sn.tar.gz -C "$HOME/.sn"
@@ -183,8 +186,11 @@ jobs:
 
       - name: Install Sindarin compiler
         run: |
+          S3_BASE="https://cryosharp-sindarin-pkg-binaries.s3.eu-west-2.amazonaws.com"
+          VER=$(curl -fsSL "${S3_BASE}/sindarin-compiler/__version__")
+          VER_NUM=$(echo "$VER" | sed 's/^v//')
           ARCH=$(uname -m | sed 's/x86_64/x64/' | sed 's/arm64/arm64/')
-          URL="https://cryosharp-sindarin-pkg-binaries.s3.eu-west-2.amazonaws.com/sindarin-compiler/v0.0.63/sindarin-0.0.63-darwin-${ARCH}.tar.gz"
+          URL="${S3_BASE}/sindarin-compiler/${VER}/sindarin-${VER_NUM}-darwin-${ARCH}.tar.gz"
           mkdir -p "$HOME/.sn"
           curl -fSL "$URL" -o /tmp/sn.tar.gz
           tar -xzf /tmp/sn.tar.gz -C "$HOME/.sn"
@@ -282,7 +288,10 @@ jobs:
       - name: Install Sindarin compiler
         shell: bash
         run: |
-          URL="https://cryosharp-sindarin-pkg-binaries.s3.eu-west-2.amazonaws.com/sindarin-compiler/v0.0.63/sindarin-0.0.63-windows-x64.zip"
+          S3_BASE="https://cryosharp-sindarin-pkg-binaries.s3.eu-west-2.amazonaws.com"
+          VER=$(curl -fsSL "${S3_BASE}/sindarin-compiler/__version__")
+          VER_NUM=$(echo "$VER" | sed 's/^v//')
+          URL="${S3_BASE}/sindarin-compiler/${VER}/sindarin-${VER_NUM}-windows-x64.zip"
           mkdir -p "$HOME/.sn"
           curl -fSL "$URL" -o /tmp/sn.zip
           unzip -o /tmp/sn.zip -d "$HOME/.sn"
