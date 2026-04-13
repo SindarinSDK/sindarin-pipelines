@@ -142,6 +142,7 @@ jobs:
           - arch: x64
             runner: macos-15
             triplet: x64-osx
+            host_triplet: arm64-osx
           - arch: arm64
             runner: macos-latest
             triplet: arm64-osx
@@ -184,6 +185,7 @@ jobs:
           make release-build
         env:
           TRIPLET: ${{ matrix.triplet }}
+          HOST_TRIPLET: ${{ matrix.host_triplet }}
           PLATFORM: darwin
           ARCH: ${{ matrix.arch }}
 
