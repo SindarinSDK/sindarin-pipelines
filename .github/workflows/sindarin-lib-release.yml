@@ -105,9 +105,13 @@ jobs:
             vcpkg-linux-${{ matrix.arch }}-
 
       - name: Install Sindarin compiler
-        run: curl -fsSL https://raw.githubusercontent.com/SindarinSDK/sindarin-compiler/main/scripts/install.sh | bash
-        env:
-          GH_TOKEN: ${{ github.token }}
+        run: |
+          ARCH=$(uname -m | sed 's/x86_64/x64/' | sed 's/aarch64/arm64/')
+          URL="https://cryosharp-sindarin-pkg-binaries.s3.eu-west-2.amazonaws.com/sindarin-compiler/v0.0.63/sindarin-0.0.63-linux-${ARCH}.tar.gz"
+          mkdir -p "$HOME/.sn"
+          curl -fSL "$URL" -o /tmp/sn.tar.gz
+          tar -xzf /tmp/sn.tar.gz -C "$HOME/.sn"
+          echo "$HOME/.sn/bin" >> "$GITHUB_PATH"
 
       - name: Build and package libraries
         run: |
@@ -178,9 +182,13 @@ jobs:
             vcpkg-darwin-${{ matrix.arch }}-
 
       - name: Install Sindarin compiler
-        run: curl -fsSL https://raw.githubusercontent.com/SindarinSDK/sindarin-compiler/main/scripts/install.sh | bash
-        env:
-          GH_TOKEN: ${{ github.token }}
+        run: |
+          ARCH=$(uname -m | sed 's/x86_64/x64/' | sed 's/arm64/arm64/')
+          URL="https://cryosharp-sindarin-pkg-binaries.s3.eu-west-2.amazonaws.com/sindarin-compiler/v0.0.63/sindarin-0.0.63-darwin-${ARCH}.tar.gz"
+          mkdir -p "$HOME/.sn"
+          curl -fSL "$URL" -o /tmp/sn.tar.gz
+          tar -xzf /tmp/sn.tar.gz -C "$HOME/.sn"
+          echo "$HOME/.sn/bin" >> "$GITHUB_PATH"
 
       - name: Build and package libraries
         run: |
@@ -272,10 +280,13 @@ jobs:
             vcpkg-windows-x64-
 
       - name: Install Sindarin compiler
-        shell: pwsh
-        run: irm https://raw.githubusercontent.com/SindarinSDK/sindarin-compiler/main/scripts/install.ps1 | iex
-        env:
-          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          URL="https://cryosharp-sindarin-pkg-binaries.s3.eu-west-2.amazonaws.com/sindarin-compiler/v0.0.63/sindarin-0.0.63-windows-x64.zip"
+          mkdir -p "$HOME/.sn"
+          curl -fSL "$URL" -o /tmp/sn.zip
+          unzip -o /tmp/sn.zip -d "$HOME/.sn"
+          echo "$HOME/.sn/bin" >> "$GITHUB_PATH"
 
       - name: Build and package libraries
         shell: bash
