@@ -68,9 +68,17 @@ jobs:
     uses: SindarinSDK/sindarin-pipelines/.github/workflows/sindarin-pkg-test.yml@main
 ```
 
-**Platforms:** Ubuntu, macOS, Windows
+**Platforms:** defaults to Ubuntu + Windows + macOS. Override with the `platforms` input (a JSON-encoded array of runner OSes):
 
-**Used by:** `sindarin-pkg-sdk`, `sindarin-pkg-http`, `sindarin-pkg-test`, `sindarin-pkg-json`, `sindarin-pkg-sqlite`, `sindarin-pkg-curl`
+```yaml
+jobs:
+  test:
+    uses: SindarinSDK/sindarin-pipelines/.github/workflows/sindarin-pkg-test.yml@main
+    with:
+      platforms: '["ubuntu-latest"]'
+```
+
+**Used by:** `sindarin-pkg-sdk`, `sindarin-pkg-http`, `sindarin-pkg-test`, `sindarin-pkg-json`, `sindarin-pkg-sqlite`, `sindarin-pkg-curl`, `sindarin-pkg-tensor` (linux+windows), `sindarin-pkg-mongo`/`-postgres`/`-mysql`/`-sqlserver` (ubuntu only)
 
 ---
 

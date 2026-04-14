@@ -5,11 +5,24 @@
 #   jobs:
 #     test:
 #       uses: SindarinSDK/sindarin-pipelines/.github/workflows/sindarin-pkg-test.yml@main
+#
+# To restrict platforms, pass a JSON array via `platforms`:
+#   jobs:
+#     test:
+#       uses: SindarinSDK/sindarin-pipelines/.github/workflows/sindarin-pkg-test.yml@main
+#       with:
+#         platforms: '["ubuntu-latest"]'
 
 name: Sindarin Package Test
 
 on:
   workflow_call:
+    inputs:
+      platforms:
+        description: 'JSON-encoded array of runner OSes to test on.'
+        type: string
+        required: false
+        default: '["ubuntu-latest","windows-latest","macos-latest"]'
 
 jobs:
   sindarin-pkg-test:
@@ -18,10 +31,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: ubuntu-latest
-          - os: windows-latest
-          - os: macos-latest
+        os: ${{ fromJSON(inputs.platforms) }}
 
     steps:
       - name: Checkout repository
