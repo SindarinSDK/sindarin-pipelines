@@ -13,6 +13,8 @@
 #                libs/<PLATFORM>/include/ (headers)
 #                libs/<PLATFORM>/VERSION  (version string)
 #                libs/<PLATFORM>/PLATFORM (platform name)
+# Packages that enable `run-consumer-smoke-test` must also provide a
+# `smoke-test` target that builds their primary consumer against libs/<PLATFORM>.
 #
 # Usage (in calling repo's .github/workflows/release.yml):
 #
@@ -57,6 +59,11 @@ on:
         required: false
         type: string
         default: ''
+      run-consumer-smoke-test:
+        description: 'Run the package make smoke-test target before uploading artifacts'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   # ---------------------------------------------------------------------------
@@ -111,6 +118,14 @@ jobs:
           echo "=== libs/linux ==="
           ls -la libs/linux/lib/*.a 2>/dev/null || echo "No .a files found"
           echo "Total libraries: $(ls libs/linux/lib/*.a 2>/dev/null | wc -l)"
+
+      - name: Smoke test consumer
+        if: inputs.run-consumer-smoke-test
+        run: make smoke-test
+        env:
+          TRIPLET: ${{ matrix.triplet }}
+          PLATFORM: linux
+          ARCH: ${{ matrix.arch }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -174,6 +189,14 @@ jobs:
           ls -la libs/darwin/lib/*.a 2>/dev/null || echo "No .a files found"
           echo "Total libraries: $(ls libs/darwin/lib/*.a 2>/dev/null | wc -l)"
 
+      - name: Smoke test consumer
+        if: inputs.run-consumer-smoke-test
+        run: make smoke-test
+        env:
+          TRIPLET: ${{ matrix.triplet }}
+          PLATFORM: darwin
+          ARCH: ${{ matrix.arch }}
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -227,6 +250,30 @@ jobs:
           echo "=== libs/windows ==="
           ls -la libs/windows/lib/*.a 2>/dev/null || echo "No .a files found"
           echo "Total libraries: $(ls libs/windows/lib/*.a 2>/dev/null | wc -l)"
+
+      - name: Install LLVM-MinGW for consumer smoke test
+        if: inputs.run-consumer-smoke-test
+        shell: pwsh
+        run: |
+          $version = "20241217"
+          $url = "https://github.com/mstorsjo/llvm-mingw/releases/download/$version/llvm-mingw-$version-ucrt-x86_64.zip"
+          $archive = "$env:RUNNER_TEMP\llvm-mingw.zip"
+          $destination = "$env:RUNNER_TEMP\llvm-mingw"
+
+          Invoke-WebRequest -Uri $url -OutFile $archive
+          Expand-Archive -Path $archive -DestinationPath $destination -Force
+
+          $toolchain = Get-ChildItem -Path $destination -Directory | Select-Object -First 1
+          "$($toolchain.FullName)\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Smoke test consumer
+        if: inputs.run-consumer-smoke-test
+        shell: bash
+        run: make smoke-test
+        env:
+          TRIPLET: x64-mingw-static
+          PLATFORM: windows
+          ARCH: x64
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
